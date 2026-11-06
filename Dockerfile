@@ -26,6 +26,10 @@ ARG BASE_IMG_TAG=jammy-20250619
 FROM $BASE_IMG:$BASE_IMG_TAG AS builder
 
 ARG UV_VERSION
+# Optional build-time mirrors for restricted networks. Empty by default, which
+# keeps the base image's own sources.list and PyPI settings unchanged.
+ARG APT_MIRROR=
+ARG UV_INDEX_URL=
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -34,6 +38,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_PYTHON_INSTALL_DIR=/opt/python
+
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i -e "s|http://archive.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+               -e "s|http://security.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+            /etc/apt/sources.list; \
+    fi \
+ && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "30";\n' \
+        > /etc/apt/apt.conf.d/99retries
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -58,6 +70,7 @@ COPY vendor/ vendor/
 
 # Resolve and install the dependency closure into /opt/venv.
 RUN --mount=type=cache,target=/root/.cache/uv \
+    if [ -n "$UV_INDEX_URL" ]; then export UV_INDEX_URL; fi; \
     uv sync --no-dev --no-install-project
 
 ############################
@@ -70,8 +83,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:${PATH}" \
     PORT=3001
 
+ARG APT_MIRROR=
+
 # The pinned base image predates later Ubuntu security fixes (libssl3, gpgv,
 # ...), so apply them before installing anything on top.
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i -e "s|http://archive.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+               -e "s|http://security.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+            /etc/apt/sources.list; \
+    fi \
+ && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "30";\n' \
+        > /etc/apt/apt.conf.d/99retries
+
 RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends \

@@ -28,8 +28,20 @@ ARG BASE_IMG_TAG=jammy-20250619
 FROM $BASE_IMG:$BASE_IMG_TAG AS base-node
 
 ARG NODE_MAJOR
+# Optional build-time mirrors for restricted networks. Empty by default, which
+# keeps the base image's own sources.list and npm settings unchanged.
+ARG APT_MIRROR=
+
 # The pinned base image predates later Ubuntu security fixes (libssl3, ...),
 # so apply them first; every later stage builds on this one.
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i -e "s|http://archive.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+               -e "s|http://security.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+            /etc/apt/sources.list; \
+    fi \
+ && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "30";\n' \
+        > /etc/apt/apt.conf.d/99retries
+
 RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
@@ -44,11 +56,16 @@ RUN apt-get update \
 FROM base-node AS deps
 
 ARG PNPM_VERSION
+ARG NPM_REGISTRY=
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     CI=1
 
-RUN npm install -g --silent corepack@latest \
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        npm config set registry "$NPM_REGISTRY"; \
+        export COREPACK_NPM_REGISTRY="$NPM_REGISTRY"; \
+    fi; \
+    npm install -g --silent corepack@latest \
  && corepack enable \
  && corepack prepare pnpm@${PNPM_VERSION} --activate
 
@@ -72,6 +89,7 @@ FROM base-node AS builder
 ARG PYTHON_API_URL=http://auto-ontology:3001
 
 ARG PNPM_VERSION
+ARG NPM_REGISTRY=
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     CI=1 \
@@ -79,7 +97,11 @@ ENV PNPM_HOME=/pnpm \
     NEXT_OUTPUT=standalone \
     PYTHON_API_URL=${PYTHON_API_URL}
 
-RUN npm install -g --silent corepack@latest \
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        npm config set registry "$NPM_REGISTRY"; \
+        export COREPACK_NPM_REGISTRY="$NPM_REGISTRY"; \
+    fi; \
+    npm install -g --silent corepack@latest \
  && corepack enable \
  && corepack prepare pnpm@${PNPM_VERSION} --activate
 
@@ -99,6 +121,17 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0
+
+ARG APT_MIRROR=
+ARG NPM_REGISTRY=
+
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i -e "s|http://archive.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+               -e "s|http://security.ubuntu.com/ubuntu|$APT_MIRROR|g" \
+            /etc/apt/sources.list; \
+    fi \
+ && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "30";\n' \
+        > /etc/apt/apt.conf.d/99retries
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini ca-certificates \
@@ -127,6 +160,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts /app/migrate/pri
 # with the vulnerable packages they bundle.
 RUN cd /app/migrate \
  && echo '{"name":"auto-ontology-migrate","version":"0.0.1","private":true,"dependencies":{"prisma":"7.7.0","dotenv":"17.4.2"},"overrides":{"deepmerge-ts":"^8.0.2","mysql2":"^3.22.0"}}' > package.json \
+ && (if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi) \
  && npm install --omit=dev --no-audit --no-fund --no-package-lock \
  && chown -R nextjs:nodejs /app/migrate \
  && rm -rf /usr/lib/node_modules/npm /usr/lib/node_modules/corepack \
