@@ -4,6 +4,8 @@
 
 """VDB initialization — data layer and semantic layer collections."""
 
+import os
+
 from auto_ontology.infra.postgres import get_postgres_connection_string
 from auto_ontology.vdb.postgres import PostgresVDB
 
@@ -28,6 +30,11 @@ def get_vdb(
         "collection_name": collection_name,
         "schema_name": VDB_SCHEMA,
     }
+    # The default 2048 matches the built-in NVIDIA embedding model. Third-party
+    # OpenAI-compatible embedding providers (bge-m3, Qwen embedding, ...) emit
+    # other dimensions; set EMBED_DIMENSIONS to match the configured EMBED model.
+    if dimensions := os.environ.get("EMBED_DIMENSIONS", ""):
+        kwargs["vector_size"] = int(dimensions)
     if database_name:
         kwargs["database_name"] = database_name
     return PostgresVDB(reset=reset, **kwargs)

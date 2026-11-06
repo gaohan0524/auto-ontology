@@ -23,6 +23,7 @@ from __future__ import annotations
 import itertools
 import logging
 import math
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -56,6 +57,15 @@ _TEXT_PREFIXED_MODELS = ("nemotron-3.5-embed-1b-nvfp4",)
 _EMBED_ENDPOINT = resolve("EMBED", "ENDPOINT")
 _EMBED_MODEL = resolve("EMBED", "MODEL")
 _EMBED_API_KEY = resolve("EMBED", "API_KEY")
+
+# Optional explicit vector size. Providers with a `dimensions` request field
+# (e.g. DashScope text-embedding-v4) need it to emit the intended width; the
+# pgvector column size is configured to the same value (see vdb/__init__.py).
+# Must match the model's actual output either way.
+_EMBED_DIMENSIONS_ENV = os.environ.get("EMBED_DIMENSIONS", "")
+_EMBED_DIMENSIONS: int | None = (
+    int(_EMBED_DIMENSIONS_ENV) if _EMBED_DIMENSIONS_ENV else None
+)
 
 # Per-request retries inside the client, for 408/409/429/5xx and dropped
 # connections. They back off for seconds; the chunk-level retry below is the
@@ -193,6 +203,9 @@ def embed_texts(
                 "input_type": input_type,
                 "truncate": "END",
                 "modality": params.embed_modality,
+                # Sent only when configured, so existing NVIDIA deployments see
+                # byte-identical requests (unit tests assert the exact body).
+                **({"dimensions": _EMBED_DIMENSIONS} if _EMBED_DIMENSIONS else {}),
             },
             timeout=timeout or params.request_timeout_s,
             extra_headers=None if params.api_key else _NO_AUTH,
