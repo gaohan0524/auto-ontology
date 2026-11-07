@@ -422,6 +422,12 @@ def _is_claude(llm: BaseChatModel) -> bool:
     return "anthropic" in lowered or "claude" in lowered
 
 
+def _is_deepseek(llm: BaseChatModel) -> bool:
+    """True when *llm* serves a DeepSeek model, matched by name."""
+    model = str(getattr(llm, "model_name", "") or getattr(llm, "model", "") or "")
+    return "deepseek" in model.lower()
+
+
 def _system_messages_first(
     llm: BaseChatModel, messages: list[BaseMessage]
 ) -> list[BaseMessage]:
@@ -474,6 +480,12 @@ def _structured_output_kwargs(llm: BaseChatModel) -> dict:
     """
     if _is_claude(llm):
         return {"method": "function_calling", "tool_choice": None}
+    if _is_deepseek(llm):
+        # DeepSeek (served through ChatNVIDIA here) rejects both the default
+        # ``response_format: json_schema`` and the function_calling path with
+        # "This response_format type is unavailable now". ``json_mode`` emits
+        # ``response_format: json_object``, which it does accept.
+        return {"method": "json_mode"}
     return {}
 
 

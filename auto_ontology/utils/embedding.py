@@ -58,13 +58,21 @@ _EMBED_ENDPOINT = resolve("EMBED", "ENDPOINT")
 _EMBED_MODEL = resolve("EMBED", "MODEL")
 _EMBED_API_KEY = resolve("EMBED", "API_KEY")
 
-# Optional explicit vector size. Providers with a `dimensions` request field
-# (e.g. DashScope text-embedding-v4) need it to emit the intended width; the
-# pgvector column size is configured to the same value (see vdb/__init__.py).
-# Must match the model's actual output either way.
+# Optional explicit vector size. `EMBED_DIMENSIONS` also sets the pgvector
+# column width (see vdb/__init__.py) and must match the model's real output.
+#
+# The `dimensions` request field is opt-in via `EMBED_SEND_DIMENSIONS`: only
+# providers that support it (e.g. DashScope text-embedding-v4) should receive
+# it. SiliconFlow's bge-m3 rejects it with HTTP 400 / code 20015, so sending it
+# unconditionally breaks embedding for every model that cannot resize.
 _EMBED_DIMENSIONS_ENV = os.environ.get("EMBED_DIMENSIONS", "")
 _EMBED_DIMENSIONS: int | None = (
     int(_EMBED_DIMENSIONS_ENV) if _EMBED_DIMENSIONS_ENV else None
+)
+_SEND_DIMENSIONS = os.environ.get("EMBED_SEND_DIMENSIONS", "").lower() in (
+    "1",
+    "true",
+    "yes",
 )
 
 # Per-request retries inside the client, for 408/409/429/5xx and dropped
@@ -203,9 +211,13 @@ def embed_texts(
                 "input_type": input_type,
                 "truncate": "END",
                 "modality": params.embed_modality,
-                # Sent only when configured, so existing NVIDIA deployments see
-                # byte-identical requests (unit tests assert the exact body).
-                **({"dimensions": _EMBED_DIMENSIONS} if _EMBED_DIMENSIONS else {}),
+                # Sent only when explicitly enabled, so providers that reject
+                # unknown fields (and existing deployments) see the plain body.
+                **(
+                    {"dimensions": _EMBED_DIMENSIONS}
+                    if _EMBED_DIMENSIONS and _SEND_DIMENSIONS
+                    else {}
+                ),
             },
             timeout=timeout or params.request_timeout_s,
             extra_headers=None if params.api_key else _NO_AUTH,
