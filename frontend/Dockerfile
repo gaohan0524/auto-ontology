@@ -45,7 +45,10 @@ RUN if [ -n "$APT_MIRROR" ]; then \
 RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
- && curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
+ && curl -fsSL --retry 8 --retry-delay 3 --retry-all-errors --connect-timeout 20 \
+        "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" -o /tmp/nodesource.sh \
+ && bash /tmp/nodesource.sh \
+ && rm -f /tmp/nodesource.sh \
  && apt-get install -y --no-install-recommends nodejs \
  && apt-get purge -y --auto-remove curl gnupg \
  && rm -rf /var/lib/apt/lists/*
@@ -76,6 +79,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY prisma ./prisma
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    if [ -n "$NPM_REGISTRY" ]; then \
+        export npm_config_registry="$NPM_REGISTRY"; \
+        export COREPACK_NPM_REGISTRY="$NPM_REGISTRY"; \
+    fi; \
     pnpm install --frozen-lockfile
 
 ############################
@@ -110,7 +117,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN pnpm build
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        export npm_config_registry="$NPM_REGISTRY"; \
+        export COREPACK_NPM_REGISTRY="$NPM_REGISTRY"; \
+    fi; \
+    pnpm build
 
 ############################
 # Stage 3: runner
