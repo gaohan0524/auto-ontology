@@ -1,0 +1,41 @@
+# 本地构建加速（国内网络）：为 Dockerfile 传入 apt / PyPI / npm 镜像。
+# docker compose 会自动加载本文件；镜像地址可用环境变量覆盖，例如：
+#   $env:APT_MIRROR="https://mirrors.ustc.edu.cn/ubuntu"
+services:
+  auto-ontology:
+    build:
+      args:
+        APT_MIRROR: ${APT_MIRROR:-http://mirrors.aliyun.com/ubuntu}
+        UV_INDEX_URL: ${UV_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}
+    # 固定模型端点 IP：FlClash 的 TUN 在重连瞬间会让容器 DNS 解析失败，
+    # 表现为 “LLM failed to produce a response”。IP 变化时删掉这两行即可。
+    extra_hosts:
+      - "api.deepseek.com:119.188.220.215"
+      - "api.siliconflow.cn:8.153.154.229"
+
+  ingestion-service:
+    build:
+      args:
+        APT_MIRROR: ${APT_MIRROR:-http://mirrors.aliyun.com/ubuntu}
+        UV_INDEX_URL: ${UV_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}
+    extra_hosts:
+      - "api.deepseek.com:119.188.220.215"
+      - "api.siliconflow.cn:8.153.154.229"
+
+  auto-ontology-migrate:
+    build:
+      args:
+        APT_MIRROR: ${APT_MIRROR:-http://mirrors.aliyun.com/ubuntu}
+        UV_INDEX_URL: ${UV_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}
+
+  auto-ontology-frontend:
+    build:
+      args:
+        APT_MIRROR: ${APT_MIRROR:-http://mirrors.aliyun.com/ubuntu}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+
+  frontend-migrate:
+    build:
+      args:
+        APT_MIRROR: ${APT_MIRROR:-http://mirrors.aliyun.com/ubuntu}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}

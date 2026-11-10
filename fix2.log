@@ -1,0 +1,100 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.87kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 6.25kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for nvcr.io/nvidia/base/ubuntu:jammy-20250619
+#3 DONE 5.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 921B done
+#4 DONE 0.0s
+
+#5 [builder 1/8] FROM nvcr.io/nvidia/base/ubuntu:jammy-20250619@sha256:be0d0eb70eb824666ab98a76ad74780fe1a68e3a9390efea9268c56e5a531226
+#5 resolve nvcr.io/nvidia/base/ubuntu:jammy-20250619@sha256:be0d0eb70eb824666ab98a76ad74780fe1a68e3a9390efea9268c56e5a531226 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 64.14kB 0.0s done
+#6 DONE 0.0s
+
+#7 [builder 3/8] RUN apt-get update  && apt-get install -y --no-install-recommends         build-essential         ca-certificates         curl         git         libpq-dev  && rm -rf /var/lib/apt/lists/*
+#7 CACHED
+
+#8 [builder 2/8] RUN if [ -n "http://mirrors.aliyun.com/ubuntu" ]; then         sed -i -e "s|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g"                -e "s|http://security.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g"             /etc/apt/sources.list;     fi  && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "30";\n'         > /etc/apt/apt.conf.d/99retries
+#8 CACHED
+
+#9 [builder 6/8] COPY pyproject.toml uv.lock .python-version ./
+#9 CACHED
+
+#10 [builder 7/8] COPY vendor/ vendor/
+#10 CACHED
+
+#11 [builder 5/8] WORKDIR /app
+#11 CACHED
+
+#12 [builder 8/8] RUN --mount=type=cache,target=/root/.cache/uv     if [ -n "https://mirrors.aliyun.com/pypi/simple" ]; then export UV_INDEX_URL; fi;     uv sync --no-dev --no-install-project
+#12 CACHED
+
+#13 [runtime  3/13] RUN apt-get update  && apt-get upgrade -y --no-install-recommends  && apt-get install -y --no-install-recommends         ca-certificates         libpq5         tini  && rm -rf /var/lib/apt/lists/*  && groupadd --system --gid 1000 auto_ontology  && useradd  --system --uid 1000 --gid auto_ontology --home /app --shell /usr/sbin/nologin auto_ontology
+#13 CACHED
+
+#14 [builder 4/8] RUN curl -LsSf "https://astral.sh/uv/0.11.29/install.sh"         -o /tmp/install-uv.sh  && env UV_UNMANAGED_INSTALL=/usr/local/bin sh /tmp/install-uv.sh  && rm /tmp/install-uv.sh
+#14 CACHED
+
+#15 [runtime  5/13] COPY --from=builder /opt/python /opt/python
+#15 CACHED
+
+#16 [runtime  4/13] WORKDIR /app
+#16 CACHED
+
+#17 [runtime  2/13] RUN if [ -n "http://mirrors.aliyun.com/ubuntu" ]; then         sed -i -e "s|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g"                -e "s|http://security.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu|g"             /etc/apt/sources.list;     fi  && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "30";\n'         > /etc/apt/apt.conf.d/99retries
+#17 CACHED
+
+#18 [runtime  6/13] COPY --from=builder /opt/venv /opt/venv
+#18 CACHED
+
+#19 [internal] preparing inline document
+#19 CACHED
+
+#20 [runtime  7/13] COPY --chown=auto_ontology:auto_ontology auto_ontology/ ./auto_ontology/
+#20 DONE 0.1s
+
+#21 [runtime  8/13] COPY --chown=auto_ontology:auto_ontology pyproject.toml ./
+#21 DONE 0.0s
+
+#22 [runtime  9/13] RUN python -c "from auto_ontology.server.users.permissions import permissions_for_role; assert 'group:read' in permissions_for_role('admin')"
+#22 DONE 0.8s
+
+#23 [runtime 10/13] COPY --chown=auto_ontology:auto_ontology alembic/ ./alembic/
+#23 DONE 0.0s
+
+#24 [runtime 11/13] COPY --chown=auto_ontology:auto_ontology alembic.ini ./
+#24 DONE 0.0s
+
+#25 [runtime 12/13] COPY --chmod=0755 <<EOF /usr/local/bin/entrypoint.sh
+#25 DONE 0.0s
+
+#26 [runtime 13/13] COPY LICENSE THIRD_PARTY_NOTICES.md CONTAINER_THIRD_PARTY_NOTICES.md OPEN_SOURCE_NOTICE /licenses/
+#26 DONE 0.1s
+
+#27 exporting to image
+#27 exporting layers
+#27 exporting layers 0.3s done
+#27 exporting manifest sha256:583e88a027ff37c5a15a82ff9fd89c6e760262d6e6ffe943313bf05958595c4d done
+#27 exporting config sha256:5a9ab64764f128057c1f33ab6af190e156d3ec8f6e3e85de6b7af83be6f8a6d2 done
+#27 exporting attestation manifest sha256:04104c8bd53101134c6aa8d499f1672cdbec19874f7de2946c6429e14875acec 0.0s done
+#27 exporting manifest list sha256:e22f5eda87fefe114aa3d956c02ebf93ce6a8f6260eab2cdb4be95040e2b5be5 done
+#27 naming to docker.io/library/auto-ontology:latest done
+#27 unpacking to docker.io/library/auto-ontology:latest
+#27 unpacking to docker.io/library/auto-ontology:latest 0.2s done
+#27 DONE 0.6s
+
+#28 resolving provenance for metadata file
+#28 DONE 0.0s
